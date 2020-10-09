@@ -1,31 +1,12 @@
 #define US_KEYBOARD 1
 
 #include <Arduino.h>
+#include <M5StickC.h>
 
 #include "pass_db.h"
 #include "ble_console.h"
 #include "ble_keyboard.h"
 #include "tft_io.h"
-
-#include <Button2.h>
-
-#define ADC_EN          14
-#define ADC_PIN         34
-#define BUTTON_L        0
-#define BUTTON_R        35
-
-Button2 btn_l(BUTTON_L);
-Button2 btn_r(BUTTON_R);
-
-char buff[512];
-int vref = 1100;
-int btnCick = false;
-
-enum MODE {
-    UNINITIALIZED = 0,
-    KEYBOARD,
-    CONSOLE
-};
 
 MODE STATE = UNINITIALIZED;
 
@@ -41,150 +22,124 @@ void espDelay(int ms)
 
 int password_index = -1;
 
-void button_init()
-{
-    btn_l.setLongClickHandler([](Button2 & b) {
-        btnCick = false;
-        
-        /*
-        int r = digitalRead(TFT_BL);
-        tft.fillScreen(TFT_BLACK);
-        tft.setTextColor(TFT_GREEN, TFT_BLACK);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString("Press again to wake up",  tft.width() / 2, tft.height() / 2 );
-        
-        espDelay(6000);
-        digitalWrite(TFT_BL, !r);
-
-        tft.writecommand(TFT_DISPOFF);
-        tft.writecommand(TFT_SLPIN);
-        
-        esp_sleep_enable_ext1_wakeup(GPIO_SEL_35, ESP_EXT1_WAKEUP_ALL_LOW);
-        esp_deep_sleep_start();
-        */
-    });
-
-    btn_r.setPressedHandler([](Button2 & b) {
-       // Serial.println("[D] Pressed R");
-
-        switch (STATE)
+void button_A_callback () {
+    switch (STATE)
         {
         case KEYBOARD:
             if (password_index != -1) {
                 password_index = (password_index + 1) % pass_db::get_amount();
-                tft_io::clean_screen();
+                //tft_io::clean_screen();
+                                
                 tft_io::print_tft_text(pass_db::get_list()[password_index]);
-                tft_io::show_switch(ble_io::get_state());
+                // tft_io::show_switch(ble_io::get_state());
             }
 
             break;
-        case UNINITIALIZED:
-            Serial.println("[+] Switched to keyboard mode");
-            
+        case UNINITIALIZED:           
             STATE = KEYBOARD;
+            tft_io::update_menu_status(STATE);
             
             if (!ble_io::setup()) {
                 tft_io::print_tft_text("IO FAILED");
-                Serial.println("IO FAILED");
                 STATE = UNINITIALIZED;
                 break;
             }
                             
             if (pass_db::get_amount() <= 0) {
-                tft_io::print_tft_text("NO SALT");
+                tft_io::print_tft_text("DB is empty");
                 espDelay(10000);
                 break;
             }    
 
-            password_index = 0;
-            tft_io::clean_screen();           
+            password_index = 0;                   
             
-            tft_io::print_tft_text(pass_db::get_list()[password_index]);
+            //tft_io::clean_screen();  
             tft_io::show_switch(ble_io::get_state());
-            
+            tft_io::print_tft_text(pass_db::get_list()[password_index]);               
             break;
-                
-        default:
-            Serial.println("[-] STATE IS UNDEFINED");
         }
 
-    });
+}
 
-    btn_l.setPressedHandler([](Button2 & b) {
-       // Serial.println("[D] Pressed L");
+void button_B_callback () {
 
-        switch (STATE) {
-            case KEYBOARD:
-                if (password_index != -1) {
-                    char pass[MAX_PASS_LENGTH] = {0};
-                    if (!pass_db::get_password(pass_db::get_list()[password_index], &pass[0])) {
-                        Serial.println("[-] Not able to get the password");
-                        return;
-                    }
-                    ble_io::print_pass(pass);
-                }
-                break;
+    switch (STATE) {
+        case KEYBOARD:
+            if (password_index != -1) {
+                char pass[MAX_PASS_LENGTH] = {0};
 
-            case UNINITIALIZED:
-                Serial.println("[+] Switched to console mode");
-                STATE = CONSOLE;
-                tft_io::clean_screen();
-
-                if (!ble_cli::setup()) {
-                    tft_io::print_tft_text("CLI FAILED");
-                    Serial.println("[-] CLI FAILED");
-                    STATE = UNINITIALIZED;                
+                if (!pass_db::get_password(pass_db::get_list()[password_index], &pass[0])) {
+                    tft_io::print_tft_text("Not able to get the password");
                     return;
                 }
-                break;
-            default:
-                Serial.println("[-] STATE IS UNDEFINED");
+                ble_io::print_pass(pass);
             }
-        });
+            break;
+
+        case UNINITIALIZED:
+            tft_io::print_tft_text("Switched to console mode");
+            STATE = CONSOLE;
+            tft_io::update_menu_status(STATE);
+            //tft_io::clean_screen();
+
+            if (!ble_cli::setup()) {
+                tft_io::print_tft_text("CLI initialization failed");
+                //Serial.println(" CLI FAILED");
+                STATE = UNINITIALIZED;                
+                return;
+            }
+            break;
+        default:
+            tft_io::print_tft_text("STATE IS UNDEFINED");
+    }
+}
+
+
+void BUTTON_Aoop() {
+    M5.update();
+    tft_io::update_menu_battery(); 
+    
+    if (M5.BtnA.isPressed()) {
+        button_A_callback();
+        //espDelay(500);        
+    }
+
+    if (M5.BtnB.isPressed()) {
+        button_B_callback();
+        //espDelay(500);
+    }
+
+    //espDelay(100);
 }
 
 void setup() {
-    Serial.begin(115200);
+    M5.begin();
 
     tft_io::start_tft();
-    espDelay(5000);
-    button_init();
+    espDelay(1000);
 
     if(!pass_db::setup()) {
-        Serial.println("[-] Was not able to init pass db");
+        tft_io::print_tft_text("Failed to init pass db");
         return;
     }
-
-    tft_io::clean_screen();
-    Serial.println("[+] System initialized");
-    KS_INITIALIZED = true;
+    
+    KS_INITIALIZED = true;    
     tft_io::show_help();
-}
-
-void button_loop() {
-    btn_l.loop();
-    btn_r.loop();
 }
 
 void loop() {
   
     if (!KS_INITIALIZED) {
-        tft_io::print_tft_text("NOT INITIALIZED");
+        tft_io::print_tft_text("Can't initialized keystore");
         espDelay(2000);
         return;
     }
     
-    button_loop();
+    BUTTON_Aoop();
 
     switch (STATE) {
-        case CONSOLE:
-            ble_cli::loop();
-            break;
-        case KEYBOARD:   
-            
-            break;
-        default: // UNINITIALIZED        
-            espDelay(100);
-            break;
+        case CONSOLE: ble_cli::loop(); break;
+        case KEYBOARD: break;
+        default: espDelay(100); 
     }
 }

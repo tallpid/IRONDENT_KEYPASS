@@ -1,5 +1,6 @@
 #include <Preferences.h>
 #include "pass_db.h"
+#include "tft_io.h"
 
 namespace pass_db {
 
@@ -20,7 +21,7 @@ bool init_password_list() {
     String concated_pass_names = "";
     try {
         concated_pass_names = preferences.getString(KEYS_LIST);
-        if (concated_pass_names.length() == 0) throw "[-] Length of the key list == 0";
+        if (concated_pass_names.length() == 0) throw " Length of the key list == 0";
     }
     catch (...) {
         Serial.println("Was not able to get the list of passwords");
@@ -28,7 +29,7 @@ bool init_password_list() {
         return false;
     }
 
-   // Serial.println("[D] Full password list: " + concated_pass_names);
+   // Serial.println(" Full password list: " + concated_pass_names);
 
     list_of_password_names = (char **)malloc(sizeof(char*) * amount_of_passwords);
 
@@ -39,16 +40,16 @@ bool init_password_list() {
         int separator = concated_pass_names.indexOf(';', current_pos);
         if (separator == -1) return false;
 
-       // Serial.println("[D] Separator position: ");
-        Serial.println(separator);
+       // Serial.println(" Separator position: ");
+        //Serial.println(separator);
 
         //if (separator + 1 == concated_pass_names.length()) break;
 
         list_of_password_names[i] = (char*)malloc(MAX_NAME_LENGTH);
         concated_pass_names.toCharArray(list_of_password_names[i], separator - current_pos + 1, current_pos);
         
-       // Serial.println("[D] Name of the key:");
-        Serial.println(list_of_password_names[i]);
+       // Serial.println(" Name of the key:");
+        //Serial.println(list_of_password_names[i]);
         
         current_pos = separator + 1;
     }
@@ -59,9 +60,9 @@ bool init_password_list() {
 bool setup() {
     preferences.begin(DB_NAME, false);
     amount_of_passwords = preferences.getUInt(PASS_COUNT, 0);
-
-    Serial.print("[~] Amount of passwords in DB: ");
-    Serial.print(amount_of_passwords);
+    char output[256];
+    sprintf(output, "Passwords in DB: %d", amount_of_passwords);
+    tft_io::print_tft_text(output);
 
     // wipe_passwords();
 
@@ -83,29 +84,29 @@ bool update_password_list() {
     try {
         preferences.remove(KEYS_LIST);
     } catch (...) {
-       // Serial.println("[D] Key list is empty");
+       // Serial.println(" Key list is empty");
     }
 
-   // Serial.println("[D] New password list: ");
+   // Serial.println(" New password list: ");
     Serial.println(newList);
     
     preferences.putString(KEYS_LIST, newList);
     
-    Serial.println("[~] The password list was updated");
+    Serial.println(" The password list was updated");
     return true;
 }
 
 bool add_password(const char* name, const char* pass) {
     if (name == nullptr || pass == nullptr) return false;
 
-   // Serial.println("[D] New password name: ");
+    // Serial.println(" New password name: ");
     Serial.println(name);
-   // Serial.println("[D] New password: ");
-    Serial.println(pass);
+    // Serial.println(" New password: ");
+    //Serial.println(pass);
 
     amount_of_passwords += 1;
     if (amount_of_passwords >= MAX_AMOUNT_OF_PASS) { 
-        Serial.println("[~] Too many passwords");
+        Serial.println(" Too many passwords");
         return false;
     }
 
@@ -124,26 +125,25 @@ bool add_password(const char* name, const char* pass) {
 }
 
 bool remove_password(const char* name) {
-   // Serial.println("[D] Received RM command for the key: ");
+   // Serial.println(" Received RM command for the key: ");
     Serial.println(name);
 
     if (amount_of_passwords == 0) {
-        Serial.println("[~] Password DB is empty");
+        Serial.println("Password DB is empty");
         return false;
     }
 
     int password_index = -1;
     for (int i = 0; i < amount_of_passwords && password_index == -1; i++) {
         if (strcmp(name, list_of_password_names[i]) == 0) {
-           // Serial.println("[D] Key index ");
-            Serial.println(i);
+           // Serial.println(" Key index ");            
             
             password_index = i;
         }
     }
 
     if (password_index == -1) {
-        Serial.println("[-] Was not able to find the password in the list");
+        Serial.println("Was not able to find the password in the list");
         return false;
     }
 
@@ -153,26 +153,26 @@ bool remove_password(const char* name) {
         check = preferences.getString(list_of_password_names[password_index]);
     }
     catch (...) {
-        Serial.print("[-] Was not able to find the password: ");
+        Serial.print("Was not able to find the password: ");
         Serial.println(name);
     }
 
     if (check.length() == 0) {
-        Serial.print("[-] Was not able to find the password: ");
+        Serial.print("Was not able to find the password: ");
         Serial.println(name);
         return false;
     }
 
     preferences.remove(name);
 
-   // Serial.println("[D] Password ");
+   // Serial.println(" Password ");
     Serial.print(name);
     Serial.println(" was removed");
 
     free(list_of_password_names[password_index]);
     list_of_password_names[password_index] = nullptr;
 
-   // Serial.println("[D] Password name buffer was removed");
+   // Serial.println(" Password name buffer was removed");
 
     if (password_index == 0) {
         list_of_password_names = &list_of_password_names[1];
@@ -204,7 +204,7 @@ bool wipe_passwords() {
     preferences.putUInt(PASS_COUNT, amount_of_passwords);
     preferences.putString(KEYS_LIST, "");
 
-    Serial.println("[~] Password database was wiped");
+    Serial.println("Password database was wiped");
 
     return true;
 }
@@ -215,7 +215,7 @@ bool get_password(const char* name, char* password) {
     try {
         tmp_password = preferences.getString(name);
     } catch (...) {
-        Serial.print("[-] Was not able to get password ");
+        Serial.print("Was not able to get password ");
         Serial.println(name);
     }
 

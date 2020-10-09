@@ -1,4 +1,5 @@
 #include "ble_keyboard.h"
+#include "tft_io.h"
 
 namespace ble_io { 
 
@@ -11,7 +12,7 @@ namespace ble_io {
     void ble_task(void*);
 
     bool setup() {
-        xTaskCreate(ble_task, "bluetooth", 20000, NULL, 5, NULL);
+        xTaskCreate(ble_task, "bluetooth", 20000, NULL, 16, NULL); 
         return true;
     }
 
@@ -28,11 +29,12 @@ namespace ble_io {
         void onConnect(BLEServer* server) {
             is_connected = true;
 
-            // Allow notifications for characteristics
+            // Allow notifications for characteristics 
             BLE2902* cccDesc = (BLE2902*)input->getDescriptorByUUID(BLEUUID((uint16_t)0x2902));
             cccDesc->setNotifications(true);
             
-            Serial.println("[~] Client has connected");
+            tft_io::update_menu_ble_status(true);
+            //tft_io::print_tft_text(" Client has connected");
         }
 
         void onDisconnect(BLEServer* server) {
@@ -42,7 +44,7 @@ namespace ble_io {
             BLE2902* cccDesc = (BLE2902*)input->getDescriptorByUUID(BLEUUID((uint16_t)0x2902));
             cccDesc->setNotifications(false);
 
-            Serial.println("[~] Client has disconnected");
+            tft_io::update_menu_ble_status(false);
         }
     };
 
@@ -100,9 +102,9 @@ namespace ble_io {
     class OutputCallbacks : public BLECharacteristicCallbacks {
         void onWrite(BLECharacteristic* characteristic) {
             OutputReport* report = (OutputReport*) characteristic->getData();
-            Serial.print("LED state: ");
-            Serial.print((int) report->leds);
-            Serial.println();
+            //Serial.print("LED state: ");
+            //Serial.print((int) report->leds);
+            //Serial.println();
         }
     };
 
@@ -110,7 +112,7 @@ namespace ble_io {
     void ble_task(void*) {
 
         // initialize the device
-        BLEDevice::init("IRONDENT_IO");
+        BLEDevice::init("IRONDENT_V2");
         BLEServer* server = BLEDevice::createServer();
         server->setCallbacks(new BleKeyboardCallbacks());
 
@@ -123,7 +125,7 @@ namespace ble_io {
         // set manufacturer name
         hid->manufacturer()->setValue("IRONDENT");
         // set USB vendor and product ID
-        hid->pnp(0x02, 0xe502, 0xa111, 0x0210);
+        hid->pnp(0x03, 0xe502, 0xa111, 0x0210);
         // information about HID device: device is not localized, device can be connected
         hid->hidInfo(0x00, 0x02);
 
@@ -135,28 +137,30 @@ namespace ble_io {
         hid->reportMap((uint8_t*)REPORT_MAP, sizeof(REPORT_MAP));
         hid->startServices();
 
-        // set battery level to 100%
+        // set battery level to 100% 
         hid->setBatteryLevel(100);
 
         // advertise the services
         BLEAdvertising* advertising = server->getAdvertising();
-        advertising->setAppearance(HID_KEYBOARD);
+        advertising->setAppearance(HID_KEYBOARD);        
         advertising->addServiceUUID(hid->hidService()->getUUID());
         advertising->addServiceUUID(hid->deviceInfo()->getUUID());
         advertising->addServiceUUID(hid->batteryService()->getUUID());
         advertising->start();
 
-        Serial.println("[+] BLE Keyboard is ready");
+        //tft_io::print_tft_text("BLE Keyboard is ready");
+        
         delay(portMAX_DELAY);
     };
 
     bool print_pass(const char* pass) {
         if (!pass || !is_connected) return false;
+
         int len = strlen(pass);
         if (len == 0) return false;
 
         for (int i = 0; i < len; i++) {
-
+            //
             // translate character to key combination
             uint8_t val = (uint8_t)pass[i];
             if (val > KEYMAP_SIZE)
@@ -172,19 +176,22 @@ namespace ble_io {
                     0, 0, 0, 0, 0
                 }
             };
-
-            // send the input report
+            
+            // send the input report 
             input->setValue((uint8_t*)&report, sizeof(report));
             input->notify();
 
-            delay(5);
-
+            delay(20);
             // release all keys between two characters; otherwise two identical
             // consecutive characters are treated as just one key press
+            //
+
+            //uint8_t NO_KEY_PRESSED[] = {0x0, 0x0, 0x0, 0x0,0x0,0x0,0x0,0x0};
+
             input->setValue((uint8_t*)&NO_KEY_PRESSED, sizeof(NO_KEY_PRESSED));
             input->notify();
 
-            delay(5);
-        }        
+            delay(20);
+        }
     }
 }

@@ -14,3 +14,13 @@ namespace pass_db {
     char** get_list();
     unsigned int get_amount();
 }
+
+
+#ifndef GMODE
+enum MODE {
+    UNINITIALIZED = 0,
+    KEYBOARD,
+    CONSOLE
+};
+#define GMODE
+#endif

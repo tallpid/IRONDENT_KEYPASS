@@ -37,9 +37,9 @@ void initialize_cli_pin() {
 
 bool setup(void) {
     if( (BLE_CLI_INITIALIZED = ESP_BT.begin("IRONDENT_KS"))) {
-        Serial.println("[+] BLE console was enabled");
+        tft_io::print_tft_text("BLE console was enabled");
     } else {
-        Serial.println("[-] BLE console initialization was failed");
+        tft_io::print_tft_text("BLE console initialization was failed");
     }
 
     initialize_cli_pin();
@@ -53,9 +53,9 @@ bool check_password(String incoming) {
 }
 
 void print_help(void) {
-    ESP_BT.println("[~] Add new: add <name_of_key> <password>");
-    ESP_BT.println("[~] Remove: rm <name_of_key>");
-    ESP_BT.println("[~] Delete all: wipe");
+    ESP_BT.println(" Add new: add <name_of_key> <password>");
+    ESP_BT.println(" Remove: rm <name_of_key>");
+    ESP_BT.println(" Delete all: wipe");
 }
 
 bool add_password(String command);
@@ -66,7 +66,7 @@ bool command_handler(String incoming) {
     const unsigned int commands_count = 3;
 
     incoming.replace("\n", "");
-   // Serial.println("[D] Incoming command: " + incoming);
+   // tft_io::print_tft_text(" Incoming command: " + incoming);
 
     const char * commands_array [] = {
         "add",
@@ -78,8 +78,8 @@ bool command_handler(String incoming) {
     BLE_CLI_COMMANDS command_index = UNINITIALIZED;
 
     for (int i = 0; i < commands_count && command_index == -1; i++) {
-       // Serial.println("[D] Compare with command:");
-        Serial.println(commands_array[i]);
+       // tft_io::print_tft_text(" Compare with command:");
+       // tft_io::print_tft_text(commands_array[i]);
 
         if(incoming.indexOf(commands_array[i]) == 0) {
             command_index = (BLE_CLI_COMMANDS) i;
@@ -93,23 +93,23 @@ bool command_handler(String incoming) {
     case ADD:
         command_was_parsed = add_password(incoming);
         if (!command_was_parsed) {
-            Serial.println("[-] Was not able to add the password");
+            tft_io::print_tft_text(" Was not able to add the password");
         }
         break;
     case RM:
         command_was_parsed = rm_password(incoming);
         if (!command_was_parsed) {
-            Serial.println("[-] Was not able to delete the password");
+            tft_io::print_tft_text(" Was not able to delete the password");
         }
         break;
     case WIPE:
         command_was_parsed = wipe();
         if (!command_was_parsed) {
-            Serial.println("[-] Was not able to wipe DB");
+            tft_io::print_tft_text(" Was not able to wipe DB");
         }
         break;
     default:
-        Serial.println("[-] Command was not found");
+        tft_io::print_tft_text(" Command was not found");
     }
 
     return command_was_parsed;
@@ -122,11 +122,11 @@ void loop(void) {
         String incoming = ESP_BT.readString(); //Read what we recevive
         if (!BLE_CLI_UNLOCKED) {                        
             if(!check_password(incoming)) {
-                Serial.println("[-] Incorrect password: " + incoming);              
+                tft_io::print_tft_text(" Incorrect password");              
                 // To stop bruteforce
                 delay(10000);
             } else {
-                ESP_BT.println("[+] BLE Console was unlocked");
+                ESP_BT.println(" BLE Console was unlocked");
                 print_help();
             }
 
@@ -134,7 +134,7 @@ void loop(void) {
         }
 
         if (!command_handler(incoming)) {
-            Serial.println("[-] Incorrect command: " + incoming);
+            tft_io::print_tft_text(" Incorrect command");
         }
     }
 }
@@ -145,15 +145,15 @@ bool add_password(String command) {
     String args = command.substring(strlen("add "));
     if (args.length() == 0) return status;
 
-   // Serial.println("[D] ADD command : " + command);
-   // Serial.println("[D] ADD args : " + args);
+   // tft_io::print_tft_text(" ADD command : " + command);
+   // tft_io::print_tft_text(" ADD args : " + args);
 
     int separator = args.indexOf(" ");
     if (separator <= 0) return status;
 
     /*
-   // Serial.println("[D] Separator position: ");
-    Serial.println(separator);
+   // tft_io::print_tft_text(" Separator position: ");
+    tft_io::print_tft_text(separator);
     */
     
     char name[MAX_NAME_LENGTH] = {0};
@@ -166,11 +166,11 @@ bool add_password(String command) {
 
     /*
     
-    Serial.println(name);
-    Serial.println(strlen(name));
+    tft_io::print_tft_text(name);
+    tft_io::print_tft_text(strlen(name));
 
-    Serial.println(pass);
-    Serial.println(strlen(pass));
+    tft_io::print_tft_text(pass);
+    tft_io::print_tft_text(strlen(pass));
     
     */
 
@@ -182,7 +182,7 @@ bool add_password(String command) {
 bool rm_password(String command) {
     char name[MAX_NAME_LENGTH] = {0};
     if(command.length() == 0) {
-        Serial.println("[-] Cant remove the password with empty name");
+        tft_io::print_tft_text(" Cant remove the password with empty name");
         return false;
     }
 
